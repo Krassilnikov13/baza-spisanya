@@ -84,10 +84,15 @@
 
   .today-card{ background:var(--accent-soft); border-radius:var(--radius-lg); padding:14px 16px; margin-bottom:14px; }
   .today-card .t{font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--accent); margin-bottom:6px;}
-  .today-row{display:flex; justify-content:space-between; align-items:center; padding:5px 0; font-size:14px;}
-  .today-row .name{color:var(--ink); font-weight:600;}
-  .today-row .qty{color:var(--accent); font-weight:800;}
+  .today-row{display:flex; justify-content:space-between; align-items:center; padding:5px 0; font-size:14px; gap:8px;}
+  .today-row .name{color:var(--ink); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .today-row .qty{color:var(--accent); font-weight:800; white-space:nowrap;}
+  .today-row .del{flex:0 0 auto; width:22px; height:22px; border-radius:50%; border:none; background:rgba(179,73,47,0.14); color:var(--warn); font-size:14px; font-weight:800; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center;}
   .today-empty{color:var(--ink-soft); font-size:13.5px;}
+
+  .confirm-sheet{max-width:380px; text-align:center;}
+  .confirm-sheet h2{font-size:17px;}
+  .confirm-sheet .sub2{margin-bottom:18px;}
 
   .item-list{display:flex; flex-direction:column; gap:8px;}
   .item-row{
@@ -358,6 +363,7 @@ function render(){
 
   if(state.activeItemId){ renderEntrySheet(); }
   if(state.showAddForm){ renderAddSheet(); }
+  if(confirmState){ renderConfirmSheet(); }
 }
 
 function bindTabButtons(){
@@ -388,13 +394,7 @@ function filteredNomenclature(){
 
 function renderVvod(){
   var today = todayStr();
-  var todayRecords = state.records.filter(function(r){ return r.date===today; });
-  var map = {};
-  todayRecords.forEach(function(r){ map[r.nomenclatureId] = (map[r.nomenclatureId]||0) + r.qty; });
-  var todaySummary = Object.keys(map).map(function(id){
-    var n = findNom(id);
-    return {name: n?n.name:"—", unit: n?n.unit:"", qty: map[id]};
-  });
+  var todayRecords = state.records.filter(function(r){ return r.date===today; }).sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); });
 
   var html = '';
   html += '<div class="search-wrap">'+searchIconSvg()+'<input class="search" id="vvodSearch" placeholder="Найти товар…" value="'+esc(state.vvodQuery)+'"></div>';
@@ -407,11 +407,12 @@ function renderVvod(){
   html += '</div>';
 
   html += '<div class="today-card"><div class="t">Списано сегодня</div>';
-  if(todaySummary.length===0){
+  if(todayRecords.length===0){
     html += '<div class="today-empty">Пока ничего не вписано</div>';
   }else{
-    todaySummary.forEach(function(s){
-      html += '<div class="today-row"><div class="name">'+esc(s.name)+'</div><div class="qty">'+numFmt(s.qty)+' '+esc(s.unit)+'</div></div>';
+    todayRecords.forEach(function(r){
+      var n = findNom(r.nomenclatureId);
+      html += '<div class="today-row"><div class="name">'+esc(n?n.name:"—")+'</div><div class="qty">'+numFmt(r.qty)+' '+esc(n?n.unit:"")+'</div><button class="del" data-del-record="'+r.id+'">✕</button></div>';
     });
   }
   html += '</div>';
@@ -464,6 +465,72 @@ function bindVvod(){
       render();
     });
   });
+  document.querySelectorAll('[data-del-record]').forEach(function(el){
+    el.addEventListener('click', function(e){
+      e.stopPropagation();
+      var id = el.getAttribute('data-del-record');
+      var r = state.records.find(function(x){ return x.id===id; });
+      var n = r ? findNom(r.nomenclatureId) : null;
+      openConfirm({
+        title: 'Удалить запись?',
+        text: n ? (n.name+' — '+numFmt(r.qty)+' '+n.unit) : 'Запись будет удалена без возможности восстановления',
+        onConfirm: function(){ deleteRecord(id); }
+      });
+    });
+  });
+}
+
+async function deleteRecord(id){
+  var prev = state.records;
+  state.records = state.records.filter(function(r){ return r.id!==id; });
+  render();
+  try{
+    var res = await api('deleteRecord', {id: id});
+    if(res && res.error) throw new Error(res.error);
+    showToast("Запись удалена");
+  }catch(e){
+    console.error(e);
+    state.records = prev;
+    render();
+    showToast("Не удалось удалить — проверь связь");
+  }
+}
+
+/* ---------- CONFIRM DIALOG (generic) ---------- */
+
+var confirmState = null; // {title, text, onConfirm}
+
+function openConfirm(opts){
+  confirmState = opts;
+  renderConfirmSheet();
+}
+
+function renderConfirmSheet(){
+  if(!confirmState) return;
+  var html = '<div class="overlay show" id="confirmOverlay"><div class="sheet confirm-sheet">';
+  html += '<h2>'+esc(confirmState.title)+'</h2>';
+  html += '<div class="sub2">'+esc(confirmState.text)+'</div>';
+  html += '<div class="actions"><button class="btn ghost" id="confirmCancel">Отмена</button>';
+  html += '<button class="btn danger" id="confirmOk">Удалить</button></div>';
+  html += '</div></div>';
+
+  var wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  document.body.appendChild(wrap.firstChild);
+
+  document.getElementById('confirmOverlay').addEventListener('click', function(e){ if(e.target.id==='confirmOverlay') closeConfirm(); });
+  document.getElementById('confirmCancel').addEventListener('click', closeConfirm);
+  document.getElementById('confirmOk').addEventListener('click', function(){
+    var fn = confirmState && confirmState.onConfirm;
+    closeConfirm();
+    if(fn) fn();
+  });
+}
+
+function closeConfirm(){
+  confirmState = null;
+  var ov = document.getElementById('confirmOverlay');
+  if(ov) ov.remove();
 }
 
 /* ---------- ENTRY SHEET (add write-off) ---------- */
@@ -530,6 +597,7 @@ function renderEntrySheet(){
     };
     state.records.push(rec);
     state.activeItemId = null;
+    state.tab = "vvod";
     entryState = { qty:"", statya:null, date:null };
     render();
     try{ var res = await api('addRecord', rec); if(res && res.error) throw new Error(res.error); showToast(item.name+' — '+numFmt(qty)+' '+item.unit+' сохранено'); }
@@ -681,25 +749,34 @@ function bindTovary(){
     });
   }
   document.querySelectorAll('[data-remove]').forEach(function(btn){
-    btn.addEventListener('click', async function(){
+    btn.addEventListener('click', function(){
       var id = btn.getAttribute('data-remove');
-      var prev = state.nomenclature;
-      state.nomenclature = state.nomenclature.filter(function(n){ return n.id!==id; });
-      render();
-      try{
-        var res = await api('removeNomenclature', {id: id});
-        if(res && res.error) throw new Error(res.error);
-        showToast("Товар удалён из базы");
-      }catch(e){
-        console.error(e);
-        state.nomenclature = prev;
-        render();
-        showToast("Не удалось удалить — проверь связь");
-      }
+      var n = findNom(id);
+      openConfirm({
+        title: 'Удалить товар из базы?',
+        text: n ? n.name : 'Товар будет удалён из общей базы для всех устройств',
+        onConfirm: function(){ deleteNomenclature(id); }
+      });
     });
   });
   var addBtn = document.getElementById('openAddForm');
   if(addBtn) addBtn.addEventListener('click', function(){ state.showAddForm = true; render(); });
+}
+
+async function deleteNomenclature(id){
+  var prev = state.nomenclature;
+  state.nomenclature = state.nomenclature.filter(function(n){ return n.id!==id; });
+  render();
+  try{
+    var res = await api('removeNomenclature', {id: id});
+    if(res && res.error) throw new Error(res.error);
+    showToast("Товар удалён из базы");
+  }catch(e){
+    console.error(e);
+    state.nomenclature = prev;
+    render();
+    showToast("Не удалось удалить — проверь связь");
+  }
 }
 
 /* ---------- ADD ITEM SHEET ---------- */
