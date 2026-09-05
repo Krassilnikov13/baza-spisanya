@@ -108,6 +108,7 @@
   .badge.pf{background:#EFE6F5; color:var(--st-market);}
   .badge.tovar{background:#EAF0EA; color:var(--ink-soft);}
   .badge.cat{background:#F1EFE9; color:var(--ink-soft);}
+  .badge.code{background:#EEF2F7; color:#4C5A6B;}
   .stTag{font-size:11px; font-weight:800; padding:2px 8px; border-radius:6px; color:#fff; white-space:nowrap;}
   .stTag.staff{background:var(--st-staff);}
   .stTag.porcha{background:var(--st-porcha);}
@@ -258,6 +259,16 @@ var SEED_NOMENCLATURE = SEED_ROWS.map(function(r,i){
 });
 var CATEGORIES = SEED_NOMENCLATURE.map(function(n){return n.category;}).filter(function(v,i,a){return a.indexOf(v)===i;});
 
+// Категории пересчитываются от реальной загруженной базы (см. recomputeCategories),
+// а не только от стартового примерного списка — иначе после импорта настоящей
+// номенклатуры iiko фильтр по категориям во вкладке «Ввод» не увидел бы новые группы.
+function recomputeCategories(){
+  var fromData = state.nomenclature.map(function(n){ return n.category; }).filter(Boolean);
+  var merged = fromData.length ? fromData : SEED_NOMENCLATURE.map(function(n){ return n.category; });
+  CATEGORIES = merged.filter(function(v,i,a){ return a.indexOf(v)===i; });
+  if(CATEGORIES.indexOf(addState.category) === -1){ addState.category = CATEGORIES[0]; }
+}
+
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
 function capFirst(s){ return s ? s[0]+s.slice(1).toLowerCase() : s; }
@@ -269,6 +280,7 @@ var state = {
   tab: "vvod",
   vvodQuery: "",
   vvodCat: "Все",
+  vvodViewDate: todayStr(),
   activeItemId: null,
   svodStatya: STATYI[0].key,
   svodFrom: new Date(Date.now()-6*86400000).toISOString().slice(0,10),
@@ -315,6 +327,7 @@ async function loadData(silent){
     if(data && data.error) throw new Error(data.error);
     state.nomenclature = data.nomenclature || [];
     state.records = (data.records || []).map(function(r){ return Object.assign({}, r, {qty: parseFloat(r.qty)}); });
+    recomputeCategories();
   }catch(e){
     console.error("load failed", e);
     if(!silent) showToast("Не удалось загрузить данные — проверь связь");
@@ -393,8 +406,8 @@ function filteredNomenclature(){
 }
 
 function renderVvod(){
-  var today = todayStr();
-  var todayRecords = state.records.filter(function(r){ return r.date===today; }).sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); });
+  var isToday = state.vvodViewDate === todayStr();
+  var viewRecords = state.records.filter(function(r){ return r.date===state.vvodViewDate; }).sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); });
 
   var html = '';
   html += '<div class="search-wrap">'+searchIconSvg()+'<input class="search" id="vvodSearch" placeholder="Найти товар…" value="'+esc(state.vvodQuery)+'"></div>';
@@ -406,11 +419,14 @@ function renderVvod(){
   });
   html += '</div>';
 
-  html += '<div class="today-card"><div class="t">Списано сегодня</div>';
-  if(todayRecords.length===0){
-    html += '<div class="today-empty">Пока ничего не вписано</div>';
+  html += '<div class="today-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px">';
+  html += '<div class="t" style="margin-bottom:0">'+(isToday?"Списано сегодня":"Списано за дату")+'</div>';
+  html += '<input type="date" id="vvodViewDate" value="'+state.vvodViewDate+'" style="border:1px solid var(--line);border-radius:8px;padding:4px 6px;font-size:12.5px;background:#fff;color:var(--ink)">';
+  html += '</div>';
+  if(viewRecords.length===0){
+    html += '<div class="today-empty">'+(isToday?"Пока ничего не вписано":"За эту дату записей нет")+'</div>';
   }else{
-    todayRecords.forEach(function(r){
+    viewRecords.forEach(function(r){
       var n = findNom(r.nomenclatureId);
       html += '<div class="today-row"><div class="name">'+esc(n?n.name:"—")+'</div><div class="qty">'+numFmt(r.qty)+' '+esc(n?n.unit:"")+'</div><button class="del" data-del-record="'+r.id+'">✕</button></div>';
     });
@@ -426,7 +442,9 @@ function renderVvod(){
       html += '<div class="item-row" data-item="'+item.id+'">';
       html += '<div class="item-main"><div class="item-name">'+esc(item.name)+'</div><div class="item-meta">';
       html += '<span class="badge '+(item.type==="пф"?"pf":"tovar")+'">'+(item.type==="пф"?"П/Ф":"Товар")+'</span>';
-      html += '<span class="badge cat">'+esc(item.unit)+'</span></div></div>';
+      html += '<span class="badge cat">'+esc(item.unit)+'</span>';
+      if(item.code){ html += '<span class="badge code">№'+esc(item.code)+'</span>'; }
+      html += '</div></div>';
       html += '<div class="chev">›</div></div>';
     });
   }
@@ -459,6 +477,13 @@ function bindVvod(){
       render();
     });
   });
+  var viewDate = document.getElementById('vvodViewDate');
+  if(viewDate){
+    viewDate.addEventListener('change', function(){
+      state.vvodViewDate = viewDate.value;
+      render();
+    });
+  }
   document.querySelectorAll('.item-row[data-item]').forEach(function(el){
     el.addEventListener('click', function(){
       state.activeItemId = el.getAttribute('data-item');
@@ -546,7 +571,7 @@ function renderEntrySheet(){
 
   var html = '<div class="overlay show" id="entryOverlay"><div class="sheet">';
   html += '<h2>'+esc(item.name)+'</h2>';
-  html += '<div class="sub2">'+esc(capFirst(item.category))+' · '+(item.type==="пф"?"полуфабрикат":"товар")+'</div>';
+  html += '<div class="sub2">'+esc(capFirst(item.category))+' · '+(item.type==="пф"?"полуфабрикат":"товар")+(item.code?(' · №'+esc(item.code)):'')+'</div>';
 
   html += '<div class="field"><label>Количество, '+esc(item.unit)+'</label>';
   html += '<input type="number" inputmode="decimal" class="qty-input" id="entryQty" placeholder="0" value="'+esc(entryState.qty)+'"></div>';
@@ -597,8 +622,11 @@ function renderEntrySheet(){
     };
     state.records.push(rec);
     state.activeItemId = null;
+    state.vvodViewDate = rec.date; // сразу показываем карточку за ту дату, куда списали
     state.tab = "vvod";
     entryState = { qty:"", statya:null, date:null };
+    var ovNow = document.getElementById('entryOverlay');
+    if(ovNow) ovNow.remove(); // убираем окно сразу, не дожидаясь ответа сервера — иначе выглядит как зависание
     render();
     try{ var res = await api('addRecord', rec); if(res && res.error) throw new Error(res.error); showToast(item.name+' — '+numFmt(qty)+' '+item.unit+' сохранено'); }
     catch(e){
@@ -725,6 +753,7 @@ function renderTovary(){
     html += '<div class="item-main"><div class="item-name">'+esc(item.name)+'</div><div class="item-meta">';
     html += '<span class="badge '+(item.type==="пф"?"pf":"tovar")+'">'+(item.type==="пф"?"П/Ф":"Товар")+'</span>';
     html += '<span class="badge cat">'+esc(capFirst(item.category))+'</span>';
+    if(item.code){ html += '<span class="badge code">№'+esc(item.code)+'</span>'; }
     html += '<span class="stTag '+stCls(item.defaultStatya)+'">'+esc(item.defaultStatya)+'</span></div></div>';
     html += '<button class="btn danger" data-remove="'+item.id+'" style="flex:0 0 auto;padding:8px 12px;font-size:12px">Удалить</button>';
     html += '</div>';
@@ -851,6 +880,8 @@ function renderAddSheet(){
     state.nomenclature.push(item);
     state.showAddForm = false;
     addState = { name:"", type:"товар", category:CATEGORIES[0], unit:"кг", statya:STATYI[0].key };
+    var ovNow2 = document.getElementById('addOverlay');
+    if(ovNow2) ovNow2.remove();
     render();
     try{
       var res = await api('addNomenclature', item);
