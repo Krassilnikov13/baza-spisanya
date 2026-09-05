@@ -328,9 +328,10 @@ function api(action, payload){
 }
 
 var isSyncing = false;
+var pendingMutations = 0; // растёт на время add/delete/markProcessed запросов к серверу
 
 async function loadData(silent){
-  if(isSyncing) return;
+  if(isSyncing || pendingMutations>0) return;
   isSyncing = true;
   try{
     var data = await api('getData');
@@ -520,6 +521,7 @@ async function deleteRecord(id){
   var prev = state.records;
   state.records = state.records.filter(function(r){ return r.id!==id; });
   render();
+  pendingMutations++;
   try{
     var res = await api('deleteRecord', {id: id});
     if(res && res.error) throw new Error(res.error);
@@ -529,6 +531,8 @@ async function deleteRecord(id){
     state.records = prev;
     render();
     showToast("Не удалось удалить — проверь связь");
+  } finally {
+    pendingMutations--;
   }
 }
 
@@ -641,12 +645,15 @@ function renderEntrySheet(){
     var ovNow = document.getElementById('entryOverlay');
     if(ovNow) ovNow.remove(); // убираем окно сразу, не дожидаясь ответа сервера — иначе выглядит как зависание
     render();
+    pendingMutations++;
     try{ var res = await api('addRecord', rec); if(res && res.error) throw new Error(res.error); showToast(item.name+' — '+numFmt(qty)+' '+item.unit+' сохранено'); }
     catch(e){
       console.error(e);
       state.records = state.records.filter(function(r){ return r.id!==rec.id; }); // откатываем, раз не сохранилось
       render();
       showToast("Не сохранилось — проверь связь и повтори");
+    } finally {
+      pendingMutations--;
     }
   });
 }
@@ -774,6 +781,7 @@ function bindSvod(){
       return idSet[r.id] ? Object.assign({}, r, {status:"processed"}) : r;
     });
     render();
+    pendingMutations++;
     try{
       var res = await api('markProcessed', {ids: idList});
       if(res && res.error) throw new Error(res.error);
@@ -783,6 +791,8 @@ function bindSvod(){
       state.records = prevRecords;
       render();
       showToast("Не удалось отметить — проверь связь");
+    } finally {
+      pendingMutations--;
     }
   });
 }
@@ -845,6 +855,7 @@ async function deleteNomenclature(id){
   var prev = state.nomenclature;
   state.nomenclature = state.nomenclature.filter(function(n){ return n.id!==id; });
   render();
+  pendingMutations++;
   try{
     var res = await api('removeNomenclature', {id: id});
     if(res && res.error) throw new Error(res.error);
@@ -854,6 +865,8 @@ async function deleteNomenclature(id){
     state.nomenclature = prev;
     render();
     showToast("Не удалось удалить — проверь связь");
+  } finally {
+    pendingMutations--;
   }
 }
 
@@ -935,6 +948,7 @@ function renderAddSheet(){
     var ovNow2 = document.getElementById('addOverlay');
     if(ovNow2) ovNow2.remove();
     render();
+    pendingMutations++;
     try{
       var res = await api('addNomenclature', item);
       if(res && res.error) throw new Error(res.error);
@@ -944,6 +958,8 @@ function renderAddSheet(){
       state.nomenclature = state.nomenclature.filter(function(n){ return n.id!==item.id; });
       render();
       showToast("Не сохранилось — проверь связь и повтори");
+    } finally {
+      pendingMutations--;
     }
   });
 }
