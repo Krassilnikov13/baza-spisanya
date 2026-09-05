@@ -566,7 +566,7 @@ function renderEntrySheet(){
   var item = findNom(state.activeItemId);
   if(!item){ state.activeItemId=null; return; }
   if(entryState.itemId !== item.id){
-    entryState = { itemId:item.id, qty:"", statya:item.defaultStatya, date: todayStr() };
+    entryState = { itemId:item.id, qty:"", statya:null, date: todayStr() };
   }
 
   var html = '<div class="overlay show" id="entryOverlay"><div class="sheet">';
@@ -585,7 +585,7 @@ function renderEntrySheet(){
   html += '<div class="field"><label>Дата</label><input type="date" id="entryDate" value="'+entryState.date+'"></div>';
 
   html += '<div class="actions"><button class="btn ghost" id="entryCancel">Отмена</button>';
-  html += '<button class="btn primary" id="entrySave" '+(!entryState.qty||parseFloat(entryState.qty)<=0?"disabled":"")+'>Сохранить</button></div>';
+  html += '<button class="btn primary" id="entrySave" '+(!entryState.qty||parseFloat(entryState.qty)<=0||!entryState.statya?"disabled":"")+'>Сохранить</button></div>';
   html += '</div></div>';
 
   var wrap = document.createElement('div');
@@ -598,7 +598,7 @@ function renderEntrySheet(){
   document.getElementById('entryCancel').addEventListener('click', closeEntrySheet);
   document.getElementById('entryQty').addEventListener('input', function(e){
     entryState.qty = e.target.value;
-    document.getElementById('entrySave').disabled = !entryState.qty || parseFloat(entryState.qty)<=0;
+    document.getElementById('entrySave').disabled = !entryState.qty || parseFloat(entryState.qty)<=0 || !entryState.statya;
   });
   document.getElementById('entryDate').addEventListener('change', function(e){ entryState.date = e.target.value; });
   document.querySelectorAll('#entryOverlay [data-statya]').forEach(function(b){
@@ -606,6 +606,8 @@ function renderEntrySheet(){
       entryState.statya = b.getAttribute('data-statya');
       document.querySelectorAll('#entryOverlay [data-statya]').forEach(function(x){ x.classList.remove('sel'); });
       b.classList.add('sel');
+      var saveBtn = document.getElementById('entrySave');
+      if(saveBtn) saveBtn.disabled = !entryState.qty || parseFloat(entryState.qty)<=0 || !entryState.statya;
     });
   });
   document.getElementById('entrySave').addEventListener('click', async function(){
