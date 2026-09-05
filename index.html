@@ -344,8 +344,9 @@ async function loadData(silent){
   }
   isSyncing = false;
   state.loading = false;
-  // не перерисовываем поверх открытой модалки/поля ввода, чтобы не сбить то, что человек печатает
-  if(!state.activeItemId && !state.showAddForm){ render(); }
+  // не перерисовываем поверх открытой модалки/поля ввода/диалога подтверждения,
+  // чтобы не сбить то, что человек печатает, и не задублировать оверлей
+  if(!state.activeItemId && !state.showAddForm && !confirmState){ render(); }
 }
 
 // автообновление раз в 8 секунд — приближение к «реальному времени»
