@@ -170,6 +170,7 @@
   }
   .sv-item .n{font-weight:700; font-size:14.5px;}
   .sv-item .q{font-weight:800; color:var(--accent); font-size:15px; white-space:nowrap;}
+  .day-label{font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-soft); margin:14px 0 4px;}
 
   .float-add{
     position:fixed; right:20px; bottom:26px; width:56px; height:56px; border-radius:50%;
@@ -270,6 +271,14 @@ function recomputeCategories(){
 }
 
 function todayStr(){ return new Date().toISOString().slice(0,10); }
+function fmtDate(iso){
+  if(!iso) return '';
+  var p = iso.split('-');
+  if(p.length!==3) return iso;
+  var months = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+  var mi = parseInt(p[1],10)-1;
+  return parseInt(p[2],10)+' '+(months[mi]||p[1])+' '+p[0];
+}
 function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
 function capFirst(s){ return s ? s[0]+s.slice(1).toLowerCase() : s; }
 
@@ -286,6 +295,7 @@ var state = {
   svodFrom: new Date(Date.now()-6*86400000).toISOString().slice(0,10),
   svodTo: todayStr(),
   svodShowProcessed: false,
+  svodGroupByDay: false,
   tovaryQuery: "",
   showAddForm: false
 };
@@ -662,11 +672,41 @@ function aggregate(list){
   return out;
 }
 
+function aggregateByDay(list){
+  var byDate = {};
+  list.forEach(function(r){
+    if(!byDate[r.date]) byDate[r.date] = [];
+    byDate[r.date].push(r);
+  });
+  var dates = Object.keys(byDate).sort().reverse();
+  return dates.map(function(d){ return {date:d, items:aggregate(byDate[d])}; });
+}
+
+function renderSvodItemsFlat(list, dim){
+  var agg = aggregate(list);
+  var html = '';
+  agg.forEach(function(it){
+    html += '<div class="sv-item"'+(dim?' style="opacity:.55"':'')+'><div class="n">'+esc(it.name)+'</div><div class="q">'+numFmt(it.qty)+' '+esc(it.unit)+'</div></div>';
+  });
+  return html;
+}
+
+function renderSvodItemsByDay(list, dim){
+  var groups = aggregateByDay(list);
+  var html = '';
+  groups.forEach(function(g){
+    html += '<div class="day-label">'+fmtDate(g.date)+'</div>';
+    g.items.forEach(function(it){
+      html += '<div class="sv-item"'+(dim?' style="opacity:.55"':'')+'><div class="n">'+esc(it.name)+'</div><div class="q">'+numFmt(it.qty)+' '+esc(it.unit)+'</div></div>';
+    });
+  });
+  return html;
+}
+
 function renderSvod(){
   var notProcessed = state.records.filter(function(r){ return r.statya===state.svodStatya && r.status==="not_processed" && inRange(r.date); });
   var processed = state.records.filter(function(r){ return r.statya===state.svodStatya && r.status==="processed" && inRange(r.date); });
-  var notProcAgg = aggregate(notProcessed);
-  var procAgg = aggregate(processed);
+  var byDay = !!state.svodGroupByDay;
 
   var html = '';
   html += '<div class="chips">';
@@ -677,24 +717,26 @@ function renderSvod(){
 
   html += '<div class="range-row"><input type="date" id="svodFrom" value="'+state.svodFrom+'"><span>—</span><input type="date" id="svodTo" value="'+state.svodTo+'"></div>';
 
-  html += '<div class="section-head"><h3>Не проведено в iiko</h3><span class="count">'+notProcAgg.length+' поз.</span></div>';
-  if(notProcAgg.length===0){
+  html += '<div class="chips" style="margin-top:2px">';
+  html += '<div class="chip'+(!byDay?" active":"")+'" id="svodModeTotal">Итого за период</div>';
+  html += '<div class="chip'+(byDay?" active":"")+'" id="svodModeByDay">По дням</div>';
+  html += '</div>';
+
+  html += '<div class="section-head"><h3>Не проведено в iiko</h3><span class="count">'+notProcessed.length+' зап.</span></div>';
+  if(notProcessed.length===0){
     html += '<div class="empty-state" style="padding:24px 10px"><div class="big">✓</div>За этот период по статье «'+esc(state.svodStatya)+'» всё уже проведено</div>';
   }else{
-    notProcAgg.forEach(function(it){
-      html += '<div class="sv-item"><div class="n">'+esc(it.name)+'</div><div class="q">'+numFmt(it.qty)+' '+esc(it.unit)+'</div></div>';
-    });
+    html += byDay ? renderSvodItemsByDay(notProcessed,false) : renderSvodItemsFlat(notProcessed,false);
     html += '<button class="btn primary" id="markProcessed" style="width:100%;margin-top:8px">Отметить проведённым в iiko</button>';
   }
 
-  html += '<div class="section-head" id="toggleProcessed" style="cursor:pointer"><h3>Уже проведено '+(state.svodShowProcessed?"▲":"▼")+'</h3><span class="count">'+procAgg.length+' поз.</span></div>';
+  var procCount = processed.length;
+  html += '<div class="section-head" id="toggleProcessed" style="cursor:pointer"><h3>Уже проведено '+(state.svodShowProcessed?"▲":"▼")+'</h3><span class="count">'+procCount+' зап.</span></div>';
   if(state.svodShowProcessed){
-    if(procAgg.length===0){
+    if(procCount===0){
       html += '<div class="today-empty">Пока нет проведённых записей за период</div>';
     }else{
-      procAgg.forEach(function(it){
-        html += '<div class="sv-item" style="opacity:.55"><div class="n">'+esc(it.name)+'</div><div class="q">'+numFmt(it.qty)+' '+esc(it.unit)+'</div></div>';
-      });
+      html += byDay ? renderSvodItemsByDay(processed,true) : renderSvodItemsFlat(processed,true);
     }
   }
   return html;
@@ -713,6 +755,10 @@ function bindSvod(){
   if(to) to.addEventListener('change', function(){ state.svodTo = to.value; render(); });
   var toggle = document.getElementById('toggleProcessed');
   if(toggle) toggle.addEventListener('click', function(){ state.svodShowProcessed = !state.svodShowProcessed; render(); });
+  var modeTotal = document.getElementById('svodModeTotal');
+  var modeByDay = document.getElementById('svodModeByDay');
+  if(modeTotal) modeTotal.addEventListener('click', function(){ state.svodGroupByDay = false; render(); });
+  if(modeByDay) modeByDay.addEventListener('click', function(){ state.svodGroupByDay = true; render(); });
   var markBtn = document.getElementById('markProcessed');
   if(markBtn) markBtn.addEventListener('click', async function(){
     var idList = [];
