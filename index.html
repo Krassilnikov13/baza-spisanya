@@ -858,7 +858,7 @@ async function deleteNomenclature(id){
 
 /* ---------- ADD ITEM SHEET ---------- */
 
-var addState = { name:"", type:"товар", category:CATEGORIES[0], unit:"кг", statya:STATYI[0].key };
+var addState = { name:"", type:"товар", category:CATEGORIES[0], unit:"кг", statya:STATYI[0].key, code:"" };
 
 function renderAddSheet(){
   var html = '<div class="overlay show" id="addOverlay"><div class="sheet">';
@@ -878,6 +878,8 @@ function renderAddSheet(){
   html += '<div class="field"><label>Единица измерения</label><div class="seg">';
   ["кг","л","шт"].forEach(function(u){ html += '<button data-unit="'+u+'" class="'+(addState.unit===u?"sel":"")+'">'+u+'</button>'; });
   html += '</div></div>';
+
+  html += '<div class="field"><label>Код iiko (необязательно)</label><input type="text" inputmode="numeric" id="addCode" placeholder="Например, 2688" value="'+esc(addState.code)+'"></div>';
 
   html += '<div class="field"><label>Статья по умолчанию</label><div class="seg">';
   STATYI.forEach(function(s){ html += '<button data-statya="'+esc(s.key)+'" class="'+(addState.statya===s.key?"sel":"")+'">'+esc(s.key)+'</button>'; });
@@ -912,6 +914,7 @@ function renderAddSheet(){
       b.classList.add('sel');
     });
   });
+  document.getElementById('addCode').addEventListener('input', function(e){ addState.code = e.target.value; });
   document.querySelectorAll('#addOverlay [data-statya]').forEach(function(b){
     b.addEventListener('click', function(){
       addState.statya = b.getAttribute('data-statya');
@@ -924,10 +927,10 @@ function renderAddSheet(){
     if(!name) return;
     var exists = state.nomenclature.some(function(n){ return n.name.toLowerCase()===name.toLowerCase() && n.type===addState.type; });
     if(exists){ showToast("Такой товар уже есть в базе"); return; }
-    var item = { id:"n_"+Date.now()+"_"+Math.random().toString(36).slice(2,7), name:name, type:addState.type, category:addState.category, unit:addState.unit, defaultStatya:addState.statya };
+    var item = { id:"n_"+Date.now()+"_"+Math.random().toString(36).slice(2,7), name:name, type:addState.type, category:addState.category, unit:addState.unit, defaultStatya:addState.statya, code:addState.code.trim() };
     state.nomenclature.push(item);
     state.showAddForm = false;
-    addState = { name:"", type:"товар", category:CATEGORIES[0], unit:"кг", statya:STATYI[0].key };
+    addState = { name:"", type:"товар", category:CATEGORIES[0], unit:"кг", statya:STATYI[0].key, code:"" };
     var ovNow2 = document.getElementById('addOverlay');
     if(ovNow2) ovNow2.remove();
     render();
