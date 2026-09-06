@@ -779,13 +779,15 @@ function renderConfirmSheet(){
   document.getElementById('confirmCancel').addEventListener('click', closeConfirm);
   document.getElementById('confirmOk').addEventListener('click', function(){
     var fn = confirmState && confirmState.onConfirm;
-    animateOverlayOut('confirmOverlay', function(){ confirmState = null; });
-    if(fn) fn();
+    confirmState = null; // обнуляем СРАЗУ — иначе fn() (например, deleteRecord) вызовет render()
+    animateOverlayOut('confirmOverlay');            // ДО того, как анимация закрытия завершится, и render()
+    if(fn) fn();                                     // пересоздаст диалог заново поверх закрывающегося (мигание, нужен второй тап)
   });
 }
 
 function closeConfirm(){
-  animateOverlayOut('confirmOverlay', function(){ confirmState = null; });
+  confirmState = null;
+  animateOverlayOut('confirmOverlay');
 }
 
 /* ---------- ENTRY SHEET (add write-off) ---------- */
