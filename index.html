@@ -92,6 +92,8 @@
     background:var(--surface); border:1px solid var(--line); color:var(--ink-soft); cursor:pointer; white-space:nowrap;
   }
   .chip.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
+  .chip[style*="--sc"]{ border-color:var(--sc); color:var(--sc); }
+  .chip[style*="--sc"].active{ background:var(--sc); border-color:var(--sc); color:#fff; }
 
   .today-card{ background:var(--accent-soft); border-radius:var(--radius-lg); padding:14px 16px; margin-bottom:14px; }
   .today-card .t{font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:.05em; color:var(--accent); margin-bottom:6px;}
@@ -167,6 +169,8 @@
     box-shadow:0 0 0 2px rgba(47,111,79,.10);
   }
   .seg button.sel::after{content:" ✓"; font-weight:900;}
+  .seg button[style*="--sc"]{ border-color:var(--sc); color:var(--sc); }
+  .seg button[style*="--sc"].sel{ background:var(--sc); border-color:var(--sc); color:#fff; }
   .actions{display:flex; gap:10px; margin-top:6px;}
   .btn{ flex:1; padding:14px; border-radius:12px; border:none; font-size:15px; font-weight:800; cursor:pointer; }
   .btn.primary{background:var(--accent); color:#fff;}
@@ -229,6 +233,9 @@ var STATYI = [
 function stCls(name){
   for(var i=0;i<STATYI.length;i++){ if(STATYI[i].key===name) return STATYI[i].cls; }
   return "staff";
+}
+function stStyle(name){
+  return ' style="--sc:var(--st-'+stCls(name)+')"';
 }
 
 var SEED_ROWS = [
@@ -681,7 +688,7 @@ function renderEntrySheet(){
 
   html += '<div class="field"><label>Статья списания</label><div class="seg">';
   STATYI.forEach(function(s){
-    html += '<button data-statya="'+esc(s.key)+'" class="'+(entryState.statya===s.key?"sel":"")+'">'+esc(s.key)+'</button>';
+    html += '<button data-statya="'+esc(s.key)+'" class="'+(entryState.statya===s.key?"sel":"")+'"'+stStyle(s.key)+'>'+esc(s.key)+'</button>';
   });
   html += '</div></div>';
 
@@ -828,7 +835,7 @@ function renderSvod(){
   var html = '';
   html += '<div class="chips" id="svodStatyaChips">';
   STATYI.forEach(function(s){
-    html += '<div class="chip'+(state.svodStatya===s.key?" active":"")+'" data-statya="'+esc(s.key)+'">'+esc(s.key)+'</div>';
+    html += '<div class="chip'+(state.svodStatya===s.key?" active":"")+'" data-statya="'+esc(s.key)+'"'+stStyle(s.key)+'>'+esc(s.key)+'</div>';
   });
   html += '</div>';
 
@@ -1069,7 +1076,7 @@ function renderAddSheet(){
   html += '<div class="field"><label>Код iiko (необязательно)</label><input type="text" inputmode="numeric" id="addCode" placeholder="Например, 2688" value="'+esc(addState.code)+'"></div>';
 
   html += '<div class="field"><label>Статья по умолчанию</label><div class="seg">';
-  STATYI.forEach(function(s){ html += '<button data-statya="'+esc(s.key)+'" class="'+(addState.statya===s.key?"sel":"")+'">'+esc(s.key)+'</button>'; });
+  STATYI.forEach(function(s){ html += '<button data-statya="'+esc(s.key)+'" class="'+(addState.statya===s.key?"sel":"")+'"'+stStyle(s.key)+'>'+esc(s.key)+'</button>'; });
   html += '</div></div>';
 
   html += '<div class="actions"><button class="btn ghost" id="addCancel">Отмена</button>';
