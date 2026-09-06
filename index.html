@@ -21,6 +21,10 @@
     --accent:#2F6F4F;
     --accent-soft:#E7F1EA;
     --warn:#B3492F;
+    --success:#2F6F4F;
+    --success-soft:#E7F1EA;
+    --pending:#C4791E;
+    --pending-soft:#FFF3DF;
     --st-staff:#3E7D52;
     --st-porcha:#B3492F;
     --st-otrab:#3E6FB0;
@@ -66,7 +70,11 @@
     background:transparent; color:var(--ink-soft); font-size:13.5px; font-weight:700;
     cursor:pointer; border-bottom:2px solid transparent;
   }
-  nav.tabs button.active{ color:var(--accent); border-bottom:2px solid var(--accent); }
+  nav.tabs button.active{
+    color:var(--ink);
+    border-bottom:2px solid var(--accent);
+    background:var(--accent-soft);
+  }
 
   main{flex:1; padding:14px 16px 100px;}
 
@@ -86,7 +94,7 @@
   .chip.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
 
   .today-card{ background:var(--accent-soft); border-radius:var(--radius-lg); padding:14px 16px; margin-bottom:14px; }
-  .today-card .t{font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--accent); margin-bottom:6px;}
+  .today-card .t{font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:.05em; color:var(--accent); margin-bottom:6px;}
   .today-row{display:flex; justify-content:space-between; align-items:center; padding:5px 0; font-size:14px; gap:8px;}
   .today-row .name{color:var(--ink); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1 1 auto; min-width:0;}
   .today-row .qty{color:var(--accent); font-weight:800; white-space:nowrap; flex:0 0 auto; min-width:78px; text-align:right;}
@@ -120,7 +128,11 @@
   .stTag.market{background:var(--st-market);}
   .stTag.brak{background:var(--st-brak);}
   .stTag.peremesh{background:var(--st-peremesh);}
-  .chev{color:var(--ink-soft); font-size:20px; flex:0 0 auto;}
+  .chev{
+    flex:0 0 auto; width:34px; height:34px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--accent); color:#fff; font-size:24px; font-weight:400; line-height:1;
+  }
 
   .empty-state{text-align:center; padding:40px 20px; color:var(--ink-soft);}
   .empty-state .big{font-size:34px; margin-bottom:8px;}
@@ -150,10 +162,16 @@
     flex:1 1 auto; padding:11px 10px; border-radius:10px; border:1.5px solid var(--line); background:var(--bg);
     font-size:13.5px; font-weight:700; color:var(--ink-soft); cursor:pointer; min-width:100px;
   }
-  .seg button.sel{ border-color:var(--ink); color:var(--ink); background:#fff; }
+  .seg button.sel{
+    border-color:var(--accent); color:#fff; background:var(--accent);
+    box-shadow:0 0 0 2px rgba(47,111,79,.10);
+  }
+  .seg button.sel::after{content:" ✓"; font-weight:900;}
   .actions{display:flex; gap:10px; margin-top:6px;}
   .btn{ flex:1; padding:14px; border-radius:12px; border:none; font-size:15px; font-weight:800; cursor:pointer; }
   .btn.primary{background:var(--accent); color:#fff;}
+  .btn.primary:not(:disabled){box-shadow:0 6px 14px rgba(47,111,79,.18);}
+  .btn.primary:active:not(:disabled){transform:scale(.99);}
   .btn.ghost{background:var(--bg); color:var(--ink-soft); border:1px solid var(--line);}
   .btn.danger{background:#FBEBE7; color:var(--warn);}
   .btn:disabled{opacity:.5;}
@@ -520,7 +538,7 @@ function renderVvod(){
       listHtml += '<span class="badge cat">'+esc(item.unit)+'</span>';
       if(item.code){ listHtml += '<span class="badge code">№'+esc(item.code)+'</span>'; }
       listHtml += '</div></div>';
-      listHtml += '<div class="chev">›</div></div>';
+      listHtml += '<div class="chev" aria-hidden="true">+</div></div>';
     });
   }
   listHtml += '</div>';
@@ -670,7 +688,8 @@ function renderEntrySheet(){
   html += '<div class="field"><label>Дата</label><input type="date" id="entryDate" value="'+entryState.date+'"></div>';
 
   html += '<div class="actions"><button class="btn ghost" id="entryCancel">Отмена</button>';
-  html += '<button class="btn primary" id="entrySave" '+(!entryState.qty||parseFloat(entryState.qty)<=0||!entryState.statya?"disabled":"")+'>Сохранить</button></div>';
+  var saveLabel = (entryState.qty && parseFloat(entryState.qty)>0) ? ('Списать '+numFmt(parseFloat(entryState.qty))+' '+item.unit) : 'Списать';
+   html += '<button class="btn primary" id="entrySave" '+(!entryState.qty||parseFloat(entryState.qty)<=0||!entryState.statya?"disabled":"")+'>'+saveLabel+'</button></div>';
   html += '</div></div>';
 
   var wrap = document.createElement('div');
@@ -684,7 +703,9 @@ function renderEntrySheet(){
   document.getElementById('entryCancel').addEventListener('click', closeEntrySheet);
   document.getElementById('entryQty').addEventListener('input', function(e){
     entryState.qty = e.target.value;
-    document.getElementById('entrySave').disabled = !entryState.qty || parseFloat(entryState.qty)<=0 || !entryState.statya;
+    var saveBtn = document.getElementById('entrySave');
+     saveBtn.disabled = !entryState.qty || parseFloat(entryState.qty)<=0 || !entryState.statya;
+     saveBtn.textContent = (entryState.qty && parseFloat(entryState.qty)>0) ? ('Списать '+numFmt(parseFloat(entryState.qty))+' '+item.unit) : 'Списать';
   });
   document.getElementById('entryDate').addEventListener('change', function(e){ entryState.date = e.target.value; });
   document.getElementById('entryDate').addEventListener('input', function(e){ entryState.date = e.target.value; });
@@ -723,7 +744,7 @@ function renderEntrySheet(){
       entryState = { qty:"", statya:null, date:null };
       render();
       pendingMutations++;
-      try{ var res = await api('addRecord', rec); if(res && res.error) throw new Error(res.error); showToast(item.name+' — '+numFmt(qty)+' '+item.unit+' сохранено'); }
+      try{ var res = await api('addRecord', rec); if(res && res.error) throw new Error(res.error); showToast('✓ '+item.name+' · '+numFmt(qty)+' '+item.unit+' — списание добавлено'); }
       catch(e){
         console.error(e);
         state.records = state.records.filter(function(r){ return r.id!==rec.id; }); // откатываем, раз не сохранилось
