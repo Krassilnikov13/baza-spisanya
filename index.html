@@ -85,8 +85,8 @@
   .today-card{ background:var(--accent-soft); border-radius:var(--radius-lg); padding:14px 16px; margin-bottom:14px; }
   .today-card .t{font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--accent); margin-bottom:6px;}
   .today-row{display:flex; justify-content:space-between; align-items:center; padding:5px 0; font-size:14px; gap:8px;}
-  .today-row .name{color:var(--ink); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  .today-row .qty{color:var(--accent); font-weight:800; white-space:nowrap;}
+  .today-row .name{color:var(--ink); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1 1 auto; min-width:0;}
+  .today-row .qty{color:var(--accent); font-weight:800; white-space:nowrap; flex:0 0 auto; min-width:78px; text-align:right;}
   .today-row .del{flex:0 0 auto; width:22px; height:22px; border-radius:50%; border:none; background:rgba(179,73,47,0.14); color:var(--warn); font-size:14px; font-weight:800; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center;}
   .today-empty{color:var(--ink-soft); font-size:13.5px;}
 
