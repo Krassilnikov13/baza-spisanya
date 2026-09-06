@@ -173,6 +173,9 @@
     background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:12px 14px; margin-bottom:8px;
     display:flex; justify-content:space-between; align-items:center; gap:10px;
   }
+  .sv-item.checkable{cursor:pointer; -webkit-tap-highlight-color:transparent;}
+  .sv-item.checked{background:var(--accent); border-color:var(--accent);}
+  .sv-item.checked .n, .sv-item.checked .q{color:#fff;}
   .sv-item .n{font-weight:700; font-size:14.5px; flex:1 1 auto; min-width:0;}
   .sv-item .q{font-weight:800; color:var(--accent); font-size:15px; white-space:nowrap; flex:0 0 auto; text-align:right;}
   .day-label{font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-soft); margin:14px 0 4px;}
@@ -300,6 +303,7 @@ var state = {
   svodStatya: STATYI[0].key,
   svodFrom: new Date(Date.now()-6*86400000).toISOString().slice(0,10),
   svodTo: todayStr(),
+  svodChecked: {},
   processedFrom: new Date(Date.now()-13*86400000).toISOString().slice(0,10),
   processedTo: todayStr(),
   svodShowProcessed: false,
@@ -768,7 +772,12 @@ function renderSvodItemsFlat(list, dim){
   var agg = aggregate(list);
   var html = '';
   agg.forEach(function(it){
-    html += '<div class="sv-item"'+(dim?' style="opacity:.55"':'')+'><div class="n">'+esc(it.name)+'</div><div class="q">'+numFmt(it.qty)+' '+esc(it.unit)+'</div></div>';
+    if(dim){
+      html += '<div class="sv-item" style="opacity:.55"><div class="n">'+esc(it.name)+'</div><div class="q">'+numFmt(it.qty)+' '+esc(it.unit)+'</div></div>';
+    }else{
+      var checked = !!state.svodChecked[it.id];
+      html += '<div class="sv-item checkable'+(checked?" checked":"")+'" data-check-item="'+esc(it.id)+'"><div class="n">'+esc(it.name)+'</div><div class="q">'+numFmt(it.qty)+' '+esc(it.unit)+'</div></div>';
+    }
   });
   return html;
 }
@@ -779,7 +788,12 @@ function renderSvodItemsByDay(list, dim){
   groups.forEach(function(g){
     html += '<div class="day-label">'+fmtDate(g.date)+'</div>';
     g.items.forEach(function(it){
-      html += '<div class="sv-item"'+(dim?' style="opacity:.55"':'')+'><div class="n">'+esc(it.name)+'</div><div class="q">'+numFmt(it.qty)+' '+esc(it.unit)+'</div></div>';
+      if(dim){
+        html += '<div class="sv-item" style="opacity:.55"><div class="n">'+esc(it.name)+'</div><div class="q">'+numFmt(it.qty)+' '+esc(it.unit)+'</div></div>';
+      }else{
+        var checked = !!state.svodChecked[it.id];
+        html += '<div class="sv-item checkable'+(checked?" checked":"")+'" data-check-item="'+esc(it.id)+'"><div class="n">'+esc(it.name)+'</div><div class="q">'+numFmt(it.qty)+' '+esc(it.unit)+'</div></div>';
+      }
     });
   });
   return html;
@@ -828,19 +842,28 @@ function bindSvod(){
   document.querySelectorAll('.chip[data-statya]').forEach(function(el){
     el.addEventListener('click', function(){
       state.svodStatya = el.getAttribute('data-statya');
+      state.svodChecked = {}; // отметки актуальны только для текущей статьи
       render();
     });
   });
   var from = document.getElementById('svodFrom');
   var to = document.getElementById('svodTo');
-  if(from) from.addEventListener('change', function(){ state.svodFrom = from.value; render(); });
-  if(to) to.addEventListener('change', function(){ state.svodTo = to.value; render(); });
+  if(from) from.addEventListener('change', function(){ state.svodFrom = from.value; state.svodChecked = {}; render(); });
+  if(to) to.addEventListener('change', function(){ state.svodTo = to.value; state.svodChecked = {}; render(); });
   var toggle = document.getElementById('toggleProcessed');
   if(toggle) toggle.addEventListener('click', function(){ state.svodShowProcessed = !state.svodShowProcessed; render(); });
   var modeTotal = document.getElementById('svodModeTotal');
   var modeByDay = document.getElementById('svodModeByDay');
   if(modeTotal) modeTotal.addEventListener('click', function(){ state.svodGroupByDay = false; render(); });
   if(modeByDay) modeByDay.addEventListener('click', function(){ state.svodGroupByDay = true; render(); });
+  document.querySelectorAll('[data-check-item]').forEach(function(el){
+    el.addEventListener('click', function(){
+      var id = el.getAttribute('data-check-item');
+      if(state.svodChecked[id]) delete state.svodChecked[id];
+      else state.svodChecked[id] = true;
+      el.classList.toggle('checked');
+    });
+  });
   var markBtn = document.getElementById('markProcessed');
   if(markBtn) markBtn.addEventListener('click', async function(){
     var idList = [];
@@ -854,6 +877,7 @@ function bindSvod(){
     state.records = state.records.map(function(r){
       return idSet[r.id] ? Object.assign({}, r, {status:"processed"}) : r;
     });
+    state.svodChecked = {}; // список исчез — отметки больше не нужны
     render();
     pendingMutations++;
     try{
