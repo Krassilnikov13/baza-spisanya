@@ -110,6 +110,7 @@
   .badge{font-size:11px; font-weight:700; padding:2px 7px; border-radius:6px;}
   .badge.pf{background:#EFE6F5; color:var(--st-market);}
   .badge.tovar{background:#EAF0EA; color:var(--ink-soft);}
+  .badge.dish{background:#FBEBD9; color:var(--st-brak);}
   .badge.cat{background:#F1EFE9; color:var(--ink-soft);}
   .badge.code{background:#EEF2F7; color:#4C5A6B;}
   .stTag{font-size:11px; font-weight:800; padding:2px 8px; border-radius:6px; color:#fff; white-space:nowrap;}
@@ -360,6 +361,17 @@ async function loadData(silent){
 // автообновление раз в 8 секунд — приближение к «реальному времени»
 setInterval(function(){ loadData(true); }, 8000);
 
+function typeBadgeClass(type){
+  if(type==="пф") return "pf";
+  if(type==="блюдо") return "dish";
+  return "tovar";
+}
+function typeBadgeLabel(type){
+  if(type==="пф") return "П/Ф";
+  if(type==="блюдо") return "Блюдо";
+  return "Товар";
+}
+
 function findNom(id){
   for(var i=0;i<state.nomenclature.length;i++){ if(state.nomenclature[i].id===id) return state.nomenclature[i]; }
   return null;
@@ -500,7 +512,7 @@ function renderVvod(){
     list.forEach(function(item){
       listHtml += '<div class="item-row" data-item="'+item.id+'">';
       listHtml += '<div class="item-main"><div class="item-name">'+esc(item.name)+'</div><div class="item-meta">';
-      listHtml += '<span class="badge '+(item.type==="пф"?"pf":"tovar")+'">'+(item.type==="пф"?"П/Ф":"Товар")+'</span>';
+      listHtml += '<span class="badge '+typeBadgeClass(item.type)+'">'+typeBadgeLabel(item.type)+'</span>';
       listHtml += '<span class="badge cat">'+esc(item.unit)+'</span>';
       if(item.code){ listHtml += '<span class="badge code">№'+esc(item.code)+'</span>'; }
       listHtml += '</div></div>';
@@ -635,7 +647,8 @@ function renderEntrySheet(){
 
   var html = '<div class="overlay" id="entryOverlay"><div class="sheet">';
   html += '<h2>'+esc(item.name)+'</h2>';
-  html += '<div class="sub2">'+esc(capFirst(item.category))+' · '+(item.type==="пф"?"полуфабрикат":"товар")+(item.code?(' · №'+esc(item.code)):'')+'</div>';
+  var typeLabelLower = item.type==="пф" ? "полуфабрикат" : (item.type==="блюдо" ? "блюдо" : "товар");
+  html += '<div class="sub2">'+esc(capFirst(item.category))+' · '+typeLabelLower+(item.code?(' · №'+esc(item.code)):'')+'</div>';
 
   html += '<div class="field"><label>Количество, '+esc(item.unit)+'</label>';
   html += '<input type="number" inputmode="decimal" class="qty-input" id="entryQty" placeholder="0" value="'+esc(entryState.qty)+'"></div>';
@@ -914,7 +927,7 @@ function renderTovary(){
   list.forEach(function(item){
     html += '<div class="item-row" style="cursor:default">';
     html += '<div class="item-main"><div class="item-name">'+esc(item.name)+'</div><div class="item-meta">';
-    html += '<span class="badge '+(item.type==="пф"?"pf":"tovar")+'">'+(item.type==="пф"?"П/Ф":"Товар")+'</span>';
+    html += '<span class="badge '+typeBadgeClass(item.type)+'">'+typeBadgeLabel(item.type)+'</span>';
     html += '<span class="badge cat">'+esc(capFirst(item.category))+'</span>';
     if(item.code){ html += '<span class="badge code">№'+esc(item.code)+'</span>'; }
     html += '<span class="stTag '+stCls(item.defaultStatya)+'">'+esc(item.defaultStatya)+'</span></div></div>';
@@ -987,6 +1000,7 @@ function renderAddSheet(){
   html += '<div class="field"><label>Тип</label><div class="seg">';
   html += '<button data-type="товар" class="'+(addState.type==="товар"?"sel":"")+'">Товар</button>';
   html += '<button data-type="пф" class="'+(addState.type==="пф"?"sel":"")+'">Полуфабрикат (П/Ф)</button>';
+  html += '<button data-type="блюдо" class="'+(addState.type==="блюдо"?"sel":"")+'">Блюдо</button>';
   html += '</div></div>';
 
   html += '<div class="field"><label>Категория</label><select id="addCategory">';
@@ -994,7 +1008,7 @@ function renderAddSheet(){
   html += '</select></div>';
 
   html += '<div class="field"><label>Единица измерения</label><div class="seg">';
-  ["кг","л","шт"].forEach(function(u){ html += '<button data-unit="'+u+'" class="'+(addState.unit===u?"sel":"")+'">'+u+'</button>'; });
+  ["кг","л","шт","порция"].forEach(function(u){ html += '<button data-unit="'+u+'" class="'+(addState.unit===u?"sel":"")+'">'+u+'</button>'; });
   html += '</div></div>';
 
   html += '<div class="field"><label>Код iiko (необязательно)</label><input type="text" inputmode="numeric" id="addCode" placeholder="Например, 2688" value="'+esc(addState.code)+'"></div>';
