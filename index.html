@@ -609,6 +609,8 @@ function openConfirm(opts){
 
 function renderConfirmSheet(){
   if(!confirmState) return;
+  var stale = document.getElementById('confirmOverlay');
+  if(stale) stale.remove(); // защита от задвоения, если render() вызвался повторно, пока окно уже открыто
   var html = '<div class="overlay" id="confirmOverlay"><div class="sheet confirm-sheet">';
   html += '<h2>'+esc(confirmState.title)+'</h2>';
   html += '<div class="sub2">'+esc(confirmState.text)+'</div>';
@@ -644,6 +646,8 @@ function renderEntrySheet(){
   if(entryState.itemId !== item.id){
     entryState = { itemId:item.id, qty:"", statya:null, date: state.vvodViewDate };
   }
+  var stale = document.getElementById('entryOverlay');
+  if(stale) stale.remove(); // защита от задвоения, если render() вызвался повторно, пока окно уже открыто
 
   var html = '<div class="overlay" id="entryOverlay"><div class="sheet">';
   html += '<h2>'+esc(item.name)+'</h2>';
@@ -992,6 +996,8 @@ async function deleteNomenclature(id){
 var addState = { name:"", type:"товар", category:CATEGORIES[0], unit:"кг", statya:STATYI[0].key, code:"" };
 
 function renderAddSheet(){
+  var stale = document.getElementById('addOverlay');
+  if(stale) stale.remove(); // защита от задвоения, если render() вызвался повторно, пока окно уже открыто
   var html = '<div class="overlay" id="addOverlay"><div class="sheet">';
   html += '<h2>Новый товар</h2><div class="sub2">Добавится в общую базу для всех устройств</div>';
 
