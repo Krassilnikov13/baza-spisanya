@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>BAZA SPISANIYA — Olly</title>
-<meta name="apple-mobile-web-app-title" content="BAZA SPISANIYA">
+<title>ЭТОБАЗА — Olly</title>
+<meta name="apple-mobile-web-app-title" content="ЭТОБАЗА">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="application-name" content="BAZA SPISANIYA">
+<meta name="application-name" content="ЭТОБАЗА">
 <meta name="theme-color" content="#1F2A22">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/png" href="icon-512.png">
@@ -50,8 +50,10 @@
     margin:0; font-size:29px; font-weight:900; letter-spacing:0.04em; text-transform:uppercase;
     line-height:1.05;
   }
+  header.topbar .brand-row{ display:flex; align-items:center; gap:10px; }
+  header.topbar .brand-mark{ width:32px; height:32px; border-radius:9px; flex:0 0 auto; }
   header.topbar h1 .accent{ color:var(--accent); }
-  header.topbar h1 .rule{
+  header.topbar .rule{
     display:block; width:46px; height:4px; border-radius:2px; margin-top:8px;
     background:linear-gradient(90deg, var(--ink) 0%, var(--accent) 100%);
   }
@@ -397,7 +399,8 @@ function render(){
     return;
   }
   var html = '';
-  html += '<header class="topbar"><h1>BAZA <span class="accent">SPISANIYA</span><span class="rule"></span></h1><div class="sub">Olly Pub &amp; Breakfast</div></header>';
+  html += '<header class="topbar"><div class="brand-row"><img class="brand-mark" src="icon-512.png" alt="">'+
+    '<h1>ЭТОБАЗА</h1></div><span class="rule"></span><div class="sub">Списания · Olly Pub &amp; Breakfast</div></header>';
   html += '<nav class="tabs">';
   html += '<button data-tab="vvod" class="'+(state.tab==="vvod"?"active":"")+'">Ввод</button>';
   html += '<button data-tab="svod" class="'+(state.tab==="svod"?"active":"")+'">Для бухгалтера</button>';
