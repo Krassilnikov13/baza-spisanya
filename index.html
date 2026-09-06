@@ -87,7 +87,7 @@
   .today-row{display:flex; justify-content:space-between; align-items:center; padding:5px 0; font-size:14px; gap:8px;}
   .today-row .name{color:var(--ink); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1 1 auto; min-width:0;}
   .today-row .qty{color:var(--accent); font-weight:800; white-space:nowrap; flex:0 0 auto; min-width:78px; text-align:right;}
-  .today-row .del{flex:0 0 auto; width:22px; height:22px; border-radius:50%; border:none; background:rgba(179,73,47,0.14); color:var(--warn); font-size:14px; font-weight:800; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center;}
+  .today-row .del, .sv-item .del{flex:0 0 auto; width:22px; height:22px; border-radius:50%; border:none; background:rgba(179,73,47,0.14); color:var(--warn); font-size:14px; font-weight:800; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center;}
   .today-empty{color:var(--ink-soft); font-size:13.5px;}
 
   .confirm-sheet{max-width:380px; text-align:center;}
@@ -168,8 +168,8 @@
     background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:12px 14px; margin-bottom:8px;
     display:flex; justify-content:space-between; align-items:center; gap:10px;
   }
-  .sv-item .n{font-weight:700; font-size:14.5px;}
-  .sv-item .q{font-weight:800; color:var(--accent); font-size:15px; white-space:nowrap;}
+  .sv-item .n{font-weight:700; font-size:14.5px; flex:1 1 auto; min-width:0;}
+  .sv-item .q{font-weight:800; color:var(--accent); font-size:15px; white-space:nowrap; flex:0 0 auto; text-align:right;}
   .day-label{font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-soft); margin:14px 0 4px;}
 
   .float-add{
@@ -864,7 +864,7 @@ function renderProcessed(){
       lastDate = r.date;
     }
     var n = findNom(r.nomenclatureId);
-    html += '<div class="sv-item"><div class="n">'+esc(n?n.name:"—")+' <span style="color:var(--ink-soft);font-weight:400">· '+esc(r.statya)+'</span></div><div class="q">'+numFmt(r.qty)+' '+esc(n?n.unit:"")+'</div></div>';
+    html += '<div class="sv-item"><div class="n">'+esc(n?n.name:"—")+' <span style="color:var(--ink-soft);font-weight:400">· '+esc(r.statya)+'</span></div><div class="q">'+numFmt(r.qty)+' '+esc(n?n.unit:"")+'</div><button class="del" data-del-record="'+r.id+'">✕</button></div>';
   });
   return html;
 }
@@ -874,6 +874,19 @@ function bindProcessed(){
   var to = document.getElementById('processedTo');
   if(from) from.addEventListener('change', function(){ state.processedFrom = from.value; render(); });
   if(to) to.addEventListener('change', function(){ state.processedTo = to.value; render(); });
+  document.querySelectorAll('[data-del-record]').forEach(function(el){
+    el.addEventListener('click', function(e){
+      e.stopPropagation();
+      var id = el.getAttribute('data-del-record');
+      var r = state.records.find(function(x){ return x.id===id; });
+      var n = r ? findNom(r.nomenclatureId) : null;
+      openConfirm({
+        title: 'Удалить запись?',
+        text: n ? (n.name+' — '+numFmt(r.qty)+' '+n.unit) : 'Запись будет удалена без возможности восстановления',
+        onConfirm: function(){ deleteRecord(id); }
+      });
+    });
+  });
 }
 
 /* ---------- TOVARY TAB (nomenclature management) ---------- */
