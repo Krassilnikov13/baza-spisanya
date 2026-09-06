@@ -805,7 +805,7 @@ function renderSvod(){
   var byDay = !!state.svodGroupByDay;
 
   var html = '';
-  html += '<div class="chips">';
+  html += '<div class="chips" id="svodStatyaChips">';
   STATYI.forEach(function(s){
     html += '<div class="chip'+(state.svodStatya===s.key?" active":"")+'" data-statya="'+esc(s.key)+'">'+esc(s.key)+'</div>';
   });
@@ -841,9 +841,13 @@ function renderSvod(){
 function bindSvod(){
   document.querySelectorAll('.chip[data-statya]').forEach(function(el){
     el.addEventListener('click', function(){
+      var chipsEl = document.getElementById('svodStatyaChips');
+      var scrollLeft = chipsEl ? chipsEl.scrollLeft : 0;
       state.svodStatya = el.getAttribute('data-statya');
       state.svodChecked = {}; // отметки актуальны только для текущей статьи
       render();
+      var newChipsEl = document.getElementById('svodStatyaChips');
+      if(newChipsEl) newChipsEl.scrollLeft = scrollLeft; // не сбрасываем прокрутку ленты статей
     });
   });
   var from = document.getElementById('svodFrom');
