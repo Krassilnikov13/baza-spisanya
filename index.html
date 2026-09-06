@@ -294,6 +294,8 @@ var state = {
   svodStatya: STATYI[0].key,
   svodFrom: new Date(Date.now()-6*86400000).toISOString().slice(0,10),
   svodTo: todayStr(),
+  processedFrom: new Date(Date.now()-13*86400000).toISOString().slice(0,10),
+  processedTo: todayStr(),
   svodShowProcessed: false,
   svodGroupByDay: false,
   tovaryQuery: "",
@@ -399,6 +401,7 @@ function render(){
   html += '<nav class="tabs">';
   html += '<button data-tab="vvod" class="'+(state.tab==="vvod"?"active":"")+'">Ввод</button>';
   html += '<button data-tab="svod" class="'+(state.tab==="svod"?"active":"")+'">Для бухгалтера</button>';
+  html += '<button data-tab="processed" class="'+(state.tab==="processed"?"active":"")+'">Проведено</button>';
   html += '<button data-tab="tovary" class="'+(state.tab==="tovary"?"active":"")+'">Товары</button>';
   html += '</nav>';
   html += '<main id="main"></main>';
@@ -407,11 +410,13 @@ function render(){
   var main = document.getElementById("main");
   if(state.tab==="vvod") main.innerHTML = renderVvod();
   else if(state.tab==="svod") main.innerHTML = renderSvod();
+  else if(state.tab==="processed") main.innerHTML = renderProcessed();
   else main.innerHTML = renderTovary();
 
   bindTabButtons();
   if(state.tab==="vvod") bindVvod();
   else if(state.tab==="svod") bindSvod();
+  else if(state.tab==="processed") bindProcessed();
   else bindTovary();
 
   if(state.activeItemId){ renderEntrySheet(); }
@@ -447,7 +452,9 @@ function filteredNomenclature(){
 
 function renderVvod(){
   var isToday = state.vvodViewDate === todayStr();
-  var viewRecords = state.records.filter(function(r){ return r.date===state.vvodViewDate; }).sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); });
+  var allDateRecords = state.records.filter(function(r){ return r.date===state.vvodViewDate; });
+  var viewRecords = allDateRecords.filter(function(r){ return r.status!=="processed"; }).sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); });
+  var hiddenProcessedCount = allDateRecords.length - viewRecords.length;
 
   var html = '';
   html += '<div class="search-wrap">'+searchIconSvg()+'<input class="search" id="vvodSearch" placeholder="Найти товар…" value="'+esc(state.vvodQuery)+'"></div>';
@@ -470,6 +477,9 @@ function renderVvod(){
       var n = findNom(r.nomenclatureId);
       html += '<div class="today-row"><div class="name">'+esc(n?n.name:"—")+'</div><div class="qty">'+numFmt(r.qty)+' '+esc(n?n.unit:"")+'</div><button class="del" data-del-record="'+r.id+'">✕</button></div>';
     });
+  }
+  if(hiddenProcessedCount>0){
+    html += '<div style="font-size:12px;color:var(--ink-soft);margin-top:6px">Ещё '+hiddenProcessedCount+' '+(hiddenProcessedCount===1?"запись уже проведена":"записей уже проведено")+' — см. вкладку «Проведено»</div>';
   }
   html += '</div>';
 
@@ -830,6 +840,40 @@ function bindSvod(){
       pendingMutations--;
     }
   });
+}
+
+/* ---------- PROCESSED TAB (уже проведённые в iiko, все статьи) ---------- */
+
+function renderProcessed(){
+  var list = state.records.filter(function(r){ return r.status==="processed" && r.date>=state.processedFrom && r.date<=state.processedTo; });
+  list.sort(function(a,b){ if(a.date!==b.date) return a.date<b.date?1:-1; return (b.createdAt||0)-(a.createdAt||0); });
+
+  var html = '';
+  html += '<div class="range-row"><input type="date" id="processedFrom" value="'+state.processedFrom+'"><span>—</span><input type="date" id="processedTo" value="'+state.processedTo+'"></div>';
+  html += '<div class="section-head"><h3>Проведено в iiko</h3><span class="count">'+list.length+' зап.</span></div>';
+
+  if(list.length===0){
+    html += '<div class="empty-state" style="padding:24px 10px"><div class="big">✓</div>За этот период нет проведённых записей</div>';
+    return html;
+  }
+
+  var lastDate = null;
+  list.forEach(function(r){
+    if(r.date!==lastDate){
+      html += '<div class="day-label">'+fmtDate(r.date)+'</div>';
+      lastDate = r.date;
+    }
+    var n = findNom(r.nomenclatureId);
+    html += '<div class="sv-item"><div class="n">'+esc(n?n.name:"—")+' <span style="color:var(--ink-soft);font-weight:400">· '+esc(r.statya)+'</span></div><div class="q">'+numFmt(r.qty)+' '+esc(n?n.unit:"")+'</div></div>';
+  });
+  return html;
+}
+
+function bindProcessed(){
+  var from = document.getElementById('processedFrom');
+  var to = document.getElementById('processedTo');
+  if(from) from.addEventListener('change', function(){ state.processedFrom = from.value; render(); });
+  if(to) to.addEventListener('change', function(){ state.processedTo = to.value; render(); });
 }
 
 /* ---------- TOVARY TAB (nomenclature management) ---------- */
