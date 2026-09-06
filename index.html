@@ -621,7 +621,7 @@ function renderEntrySheet(){
   var item = findNom(state.activeItemId);
   if(!item){ state.activeItemId=null; return; }
   if(entryState.itemId !== item.id){
-    entryState = { itemId:item.id, qty:"", statya:null, date: todayStr() };
+    entryState = { itemId:item.id, qty:"", statya:null, date: state.vvodViewDate };
   }
 
   var html = '<div class="overlay" id="entryOverlay"><div class="sheet">';
