@@ -26,6 +26,7 @@
     --st-otrab:#3E6FB0;
     --st-market:#8A4FA6;
     --st-brak:#C4791E;
+    --st-peremesh:#2F8FA6;
     --radius:14px;
     --radius-lg:20px;
   }
@@ -117,6 +118,7 @@
   .stTag.otrab{background:var(--st-otrab);}
   .stTag.market{background:var(--st-market);}
   .stTag.brak{background:var(--st-brak);}
+  .stTag.peremesh{background:var(--st-peremesh);}
   .chev{color:var(--ink-soft); font-size:20px; flex:0 0 auto;}
 
   .empty-state{text-align:center; padding:40px 20px; color:var(--ink-soft);}
@@ -199,7 +201,8 @@ var STATYI = [
   {key:"Порча", cls:"porcha"},
   {key:"Отработка / дегустация", cls:"otrab"},
   {key:"Маркетинг / фотосессия", cls:"market"},
-  {key:"Бракераж", cls:"brak"}
+  {key:"Бракераж", cls:"brak"},
+  {key:"Перемещение на бар", cls:"peremesh"}
 ];
 function stCls(name){
   for(var i=0;i<STATYI.length;i++){ if(STATYI[i].key===name) return STATYI[i].cls; }
@@ -458,51 +461,57 @@ function renderVvod(){
   var allDateRecords = state.records.filter(function(r){ return r.date===state.vvodViewDate; });
   var viewRecords = allDateRecords.filter(function(r){ return r.status!=="processed"; }).sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); });
   var hiddenProcessedCount = allDateRecords.length - viewRecords.length;
+  var isSearching = state.vvodQuery.trim().length > 0;
 
-  var html = '';
-  html += '<div class="search-wrap">'+searchIconSvg()+'<input class="search" id="vvodSearch" placeholder="Найти товар…" value="'+esc(state.vvodQuery)+'"></div>';
+  var headHtml = '';
+  headHtml += '<div class="search-wrap">'+searchIconSvg()+'<input class="search" id="vvodSearch" placeholder="Найти товар…" value="'+esc(state.vvodQuery)+'"></div>';
 
-  html += '<div class="chips">';
-  html += '<div class="chip'+(state.vvodCat==="Все"?" active":"")+'" data-cat="Все">Все</div>';
+  headHtml += '<div class="chips">';
+  headHtml += '<div class="chip'+(state.vvodCat==="Все"?" active":"")+'" data-cat="Все">Все</div>';
   CATEGORIES.forEach(function(c){
-    html += '<div class="chip'+(state.vvodCat===c?" active":"")+'" data-cat="'+esc(c)+'">'+esc(capFirst(c))+'</div>';
+    headHtml += '<div class="chip'+(state.vvodCat===c?" active":"")+'" data-cat="'+esc(c)+'">'+esc(capFirst(c))+'</div>';
   });
-  html += '</div>';
+  headHtml += '</div>';
 
-  html += '<div class="today-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px">';
-  html += '<div class="t" style="margin-bottom:0">'+(isToday?"Списано сегодня":"Списано за дату")+'</div>';
-  html += '<input type="date" id="vvodViewDate" value="'+state.vvodViewDate+'" style="border:1px solid var(--line);border-radius:8px;padding:4px 6px;font-size:12.5px;background:#fff;color:var(--ink)">';
-  html += '</div>';
+  var cardHtml = '';
+  cardHtml += '<div class="today-card"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px">';
+  cardHtml += '<div class="t" style="margin-bottom:0">'+(isToday?"Списано сегодня":"Списано за дату")+'</div>';
+  cardHtml += '<input type="date" id="vvodViewDate" value="'+state.vvodViewDate+'" style="border:1px solid var(--line);border-radius:8px;padding:4px 6px;font-size:12.5px;background:#fff;color:var(--ink)">';
+  cardHtml += '</div>';
   if(viewRecords.length===0){
-    html += '<div class="today-empty">'+(isToday?"Пока ничего не вписано":"За эту дату записей нет")+'</div>';
+    cardHtml += '<div class="today-empty">'+(isToday?"Пока ничего не вписано":"За эту дату записей нет")+'</div>';
   }else{
     viewRecords.forEach(function(r){
       var n = findNom(r.nomenclatureId);
-      html += '<div class="today-row"><div class="name">'+esc(n?n.name:"—")+'</div><div class="qty">'+numFmt(r.qty)+' '+esc(n?n.unit:"")+'</div><button class="del" data-del-record="'+r.id+'">✕</button></div>';
+      cardHtml += '<div class="today-row"><div class="name">'+esc(n?n.name:"—")+'</div><div class="qty">'+numFmt(r.qty)+' '+esc(n?n.unit:"")+'</div><button class="del" data-del-record="'+r.id+'">✕</button></div>';
     });
   }
   if(hiddenProcessedCount>0){
-    html += '<div style="font-size:12px;color:var(--ink-soft);margin-top:6px">Ещё '+hiddenProcessedCount+' '+(hiddenProcessedCount===1?"запись уже проведена":"записей уже проведено")+' — см. вкладку «Проведено»</div>';
+    cardHtml += '<div style="font-size:12px;color:var(--ink-soft);margin-top:6px">Ещё '+hiddenProcessedCount+' '+(hiddenProcessedCount===1?"запись уже проведена":"записей уже проведено")+' — см. вкладку «Проведено»</div>';
   }
-  html += '</div>';
+  cardHtml += '</div>';
 
   var list = filteredNomenclature();
-  html += '<div class="item-list">';
+  var listHtml = '';
+  listHtml += '<div class="item-list">';
   if(list.length===0){
-    html += '<div class="empty-state"><div class="big">🔍</div>Ничего не нашлось. Добавь товар во вкладке «Товары».</div>';
+    listHtml += '<div class="empty-state"><div class="big">🔍</div>Ничего не нашлось. Добавь товар во вкладке «Товары».</div>';
   }else{
     list.forEach(function(item){
-      html += '<div class="item-row" data-item="'+item.id+'">';
-      html += '<div class="item-main"><div class="item-name">'+esc(item.name)+'</div><div class="item-meta">';
-      html += '<span class="badge '+(item.type==="пф"?"pf":"tovar")+'">'+(item.type==="пф"?"П/Ф":"Товар")+'</span>';
-      html += '<span class="badge cat">'+esc(item.unit)+'</span>';
-      if(item.code){ html += '<span class="badge code">№'+esc(item.code)+'</span>'; }
-      html += '</div></div>';
-      html += '<div class="chev">›</div></div>';
+      listHtml += '<div class="item-row" data-item="'+item.id+'">';
+      listHtml += '<div class="item-main"><div class="item-name">'+esc(item.name)+'</div><div class="item-meta">';
+      listHtml += '<span class="badge '+(item.type==="пф"?"pf":"tovar")+'">'+(item.type==="пф"?"П/Ф":"Товар")+'</span>';
+      listHtml += '<span class="badge cat">'+esc(item.unit)+'</span>';
+      if(item.code){ listHtml += '<span class="badge code">№'+esc(item.code)+'</span>'; }
+      listHtml += '</div></div>';
+      listHtml += '<div class="chev">›</div></div>';
     });
   }
-  html += '</div>';
-  return html;
+  listHtml += '</div>';
+
+  // пока идёт поиск — результаты показываем НАД карточкой "Списано", чтобы не листать
+  // длинный список списаний; как только поиск очищен — карточка снова наверху, как обычно
+  return isSearching ? (headHtml + listHtml + cardHtml) : (headHtml + cardHtml + listHtml);
 }
 
 function numFmt(n){
