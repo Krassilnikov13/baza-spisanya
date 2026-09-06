@@ -616,6 +616,7 @@ function renderEntrySheet(){
     document.getElementById('entrySave').disabled = !entryState.qty || parseFloat(entryState.qty)<=0 || !entryState.statya;
   });
   document.getElementById('entryDate').addEventListener('change', function(e){ entryState.date = e.target.value; });
+  document.getElementById('entryDate').addEventListener('input', function(e){ entryState.date = e.target.value; });
   document.querySelectorAll('#entryOverlay [data-statya]').forEach(function(b){
     b.addEventListener('click', function(){
       entryState.statya = b.getAttribute('data-statya');
@@ -628,11 +629,16 @@ function renderEntrySheet(){
   document.getElementById('entrySave').addEventListener('click', async function(){
     var qty = parseFloat(entryState.qty);
     if(!qty || qty<=0) return;
+    // читаем дату прямо из поля на экране на момент клика — а не из entryState,
+    // т.к. на iOS событие change у <input type="date"> может не успеть сработать
+    // до нажатия "Сохранить", и тогда сохранялась бы дата по умолчанию (сегодня)
+    var dateEl = document.getElementById('entryDate');
+    var finalDate = (dateEl && dateEl.value) ? dateEl.value : entryState.date;
     var rec = {
       id: "r_"+Date.now()+"_"+Math.random().toString(36).slice(2,7),
       nomenclatureId: item.id,
       statya: entryState.statya,
-      date: entryState.date,
+      date: finalDate,
       qty: qty,
       status: "not_processed",
       createdAt: Date.now()
