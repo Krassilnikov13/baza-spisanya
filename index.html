@@ -358,6 +358,34 @@ function findNom(id){
   return null;
 }
 
+/* ---------- ПЛАВНОЕ ОТКРЫТИЕ/ЗАКРЫТИЕ ОКОШЕК ----------
+   Оверлей вставляется в DOM без класса "show" (в CSS это его скрытое/сдвинутое состояние),
+   затем через requestAnimationFrame добавляем "show" — браузер успевает отрисовать
+   стартовое состояние и красиво анимирует переход. При закрытии — обратный порядок:
+   снимаем "show" (запускается CSS-переход), ждём его длительность и только потом
+   реально удаляем элемент из DOM. */
+var OVERLAY_ANIM_MS = 220; // чуть больше самого долгого CSS-transition (.2s у .sheet)
+
+function animateOverlayIn(id){
+  var el = document.getElementById(id);
+  if(!el) return;
+  el.classList.remove('show');
+  void el.offsetWidth; // форсируем reflow, чтобы браузер зафиксировал стартовое состояние
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){ el.classList.add('show'); });
+  });
+}
+
+function animateOverlayOut(id, cb){
+  var el = document.getElementById(id);
+  if(!el){ if(cb) cb(); return; }
+  el.classList.remove('show');
+  setTimeout(function(){
+    if(el.parentNode) el.remove();
+    if(cb) cb();
+  }, OVERLAY_ANIM_MS);
+}
+
 /* ---------- RENDER ---------- */
 
 function render(){
@@ -547,7 +575,7 @@ function openConfirm(opts){
 
 function renderConfirmSheet(){
   if(!confirmState) return;
-  var html = '<div class="overlay show" id="confirmOverlay"><div class="sheet confirm-sheet">';
+  var html = '<div class="overlay" id="confirmOverlay"><div class="sheet confirm-sheet">';
   html += '<h2>'+esc(confirmState.title)+'</h2>';
   html += '<div class="sub2">'+esc(confirmState.text)+'</div>';
   html += '<div class="actions"><button class="btn ghost" id="confirmCancel">Отмена</button>';
@@ -557,20 +585,19 @@ function renderConfirmSheet(){
   var wrap = document.createElement('div');
   wrap.innerHTML = html;
   document.body.appendChild(wrap.firstChild);
+  animateOverlayIn('confirmOverlay');
 
   document.getElementById('confirmOverlay').addEventListener('click', function(e){ if(e.target.id==='confirmOverlay') closeConfirm(); });
   document.getElementById('confirmCancel').addEventListener('click', closeConfirm);
   document.getElementById('confirmOk').addEventListener('click', function(){
     var fn = confirmState && confirmState.onConfirm;
-    closeConfirm();
+    animateOverlayOut('confirmOverlay', function(){ confirmState = null; });
     if(fn) fn();
   });
 }
 
 function closeConfirm(){
-  confirmState = null;
-  var ov = document.getElementById('confirmOverlay');
-  if(ov) ov.remove();
+  animateOverlayOut('confirmOverlay', function(){ confirmState = null; });
 }
 
 /* ---------- ENTRY SHEET (add write-off) ---------- */
@@ -584,7 +611,7 @@ function renderEntrySheet(){
     entryState = { itemId:item.id, qty:"", statya:null, date: todayStr() };
   }
 
-  var html = '<div class="overlay show" id="entryOverlay"><div class="sheet">';
+  var html = '<div class="overlay" id="entryOverlay"><div class="sheet">';
   html += '<h2>'+esc(item.name)+'</h2>';
   html += '<div class="sub2">'+esc(capFirst(item.category))+' · '+(item.type==="пф"?"полуфабрикат":"товар")+(item.code?(' · №'+esc(item.code)):'')+'</div>';
 
@@ -606,6 +633,7 @@ function renderEntrySheet(){
   var wrap = document.createElement('div');
   wrap.innerHTML = html;
   document.body.appendChild(wrap.firstChild);
+  animateOverlayIn('entryOverlay');
 
   document.getElementById('entryOverlay').addEventListener('click', function(e){
     if(e.target.id==='entryOverlay'){ closeEntrySheet(); }
@@ -626,7 +654,7 @@ function renderEntrySheet(){
       if(saveBtn) saveBtn.disabled = !entryState.qty || parseFloat(entryState.qty)<=0 || !entryState.statya;
     });
   });
-  document.getElementById('entrySave').addEventListener('click', async function(){
+  document.getElementById('entrySave').addEventListener('click', function(){
     var qty = parseFloat(entryState.qty);
     if(!qty || qty<=0) return;
     // читаем дату прямо из поля на экране на момент клика — а не из entryState,
@@ -643,32 +671,33 @@ function renderEntrySheet(){
       status: "not_processed",
       createdAt: Date.now()
     };
-    state.records.push(rec);
-    state.activeItemId = null;
-    state.vvodViewDate = rec.date; // сразу показываем карточку за ту дату, куда списали
-    state.tab = "vvod";
-    entryState = { qty:"", statya:null, date:null };
-    var ovNow = document.getElementById('entryOverlay');
-    if(ovNow) ovNow.remove(); // убираем окно сразу, не дожидаясь ответа сервера — иначе выглядит как зависание
-    render();
-    pendingMutations++;
-    try{ var res = await api('addRecord', rec); if(res && res.error) throw new Error(res.error); showToast(item.name+' — '+numFmt(qty)+' '+item.unit+' сохранено'); }
-    catch(e){
-      console.error(e);
-      state.records = state.records.filter(function(r){ return r.id!==rec.id; }); // откатываем, раз не сохранилось
+    // сначала плавно закрываем окно, и только после анимации переключаемся на "Ввод"
+    animateOverlayOut('entryOverlay', async function(){
+      state.records.push(rec);
+      state.activeItemId = null;
+      state.vvodViewDate = rec.date; // сразу показываем карточку за ту дату, куда списали
+      state.tab = "vvod";
+      entryState = { qty:"", statya:null, date:null };
       render();
-      showToast("Не сохранилось — проверь связь и повтори");
-    } finally {
-      pendingMutations--;
-    }
+      pendingMutations++;
+      try{ var res = await api('addRecord', rec); if(res && res.error) throw new Error(res.error); showToast(item.name+' — '+numFmt(qty)+' '+item.unit+' сохранено'); }
+      catch(e){
+        console.error(e);
+        state.records = state.records.filter(function(r){ return r.id!==rec.id; }); // откатываем, раз не сохранилось
+        render();
+        showToast("Не сохранилось — проверь связь и повтори");
+      } finally {
+        pendingMutations--;
+      }
+    });
   });
 }
 
 function closeEntrySheet(){
-  state.activeItemId = null;
-  entryState = { qty:"", statya:null, date:null };
-  var ov = document.getElementById('entryOverlay');
-  if(ov) ov.remove();
+  animateOverlayOut('entryOverlay', function(){
+    state.activeItemId = null;
+    entryState = { qty:"", statya:null, date:null };
+  });
 }
 
 /* ---------- SVOD TAB (for accountant) ---------- */
@@ -881,7 +910,7 @@ async function deleteNomenclature(id){
 var addState = { name:"", type:"товар", category:CATEGORIES[0], unit:"кг", statya:STATYI[0].key, code:"" };
 
 function renderAddSheet(){
-  var html = '<div class="overlay show" id="addOverlay"><div class="sheet">';
+  var html = '<div class="overlay" id="addOverlay"><div class="sheet">';
   html += '<h2>Новый товар</h2><div class="sub2">Добавится в общую базу для всех устройств</div>';
 
   html += '<div class="field"><label>Название</label><input type="text" id="addName" placeholder="Например, Баклажаны" value="'+esc(addState.name)+'"></div>';
@@ -912,6 +941,7 @@ function renderAddSheet(){
   var wrap = document.createElement('div');
   wrap.innerHTML = html;
   document.body.appendChild(wrap.firstChild);
+  animateOverlayIn('addOverlay');
 
   document.getElementById('addOverlay').addEventListener('click', function(e){ if(e.target.id==='addOverlay') closeAddSheet(); });
   document.getElementById('addCancel').addEventListener('click', closeAddSheet);
@@ -942,39 +972,39 @@ function renderAddSheet(){
       b.classList.add('sel');
     });
   });
-  document.getElementById('addSave').addEventListener('click', async function(){
+  document.getElementById('addSave').addEventListener('click', function(){
     var name = addState.name.trim();
     if(!name) return;
     var exists = state.nomenclature.some(function(n){ return n.name.toLowerCase()===name.toLowerCase() && n.type===addState.type; });
     if(exists){ showToast("Такой товар уже есть в базе"); return; }
     var item = { id:"n_"+Date.now()+"_"+Math.random().toString(36).slice(2,7), name:name, type:addState.type, category:addState.category, unit:addState.unit, defaultStatya:addState.statya, code:addState.code.trim() };
-    state.nomenclature.push(item);
-    state.showAddForm = false;
-    addState = { name:"", type:"товар", category:CATEGORIES[0], unit:"кг", statya:STATYI[0].key, code:"" };
-    var ovNow2 = document.getElementById('addOverlay');
-    if(ovNow2) ovNow2.remove();
-    render();
-    pendingMutations++;
-    try{
-      var res = await api('addNomenclature', item);
-      if(res && res.error) throw new Error(res.error);
-      showToast('«'+name+'» добавлен в базу');
-    }catch(e){
-      console.error(e);
-      state.nomenclature = state.nomenclature.filter(function(n){ return n.id!==item.id; });
+    animateOverlayOut('addOverlay', async function(){
+      state.nomenclature.push(item);
+      state.showAddForm = false;
+      addState = { name:"", type:"товар", category:CATEGORIES[0], unit:"кг", statya:STATYI[0].key, code:"" };
       render();
-      showToast("Не сохранилось — проверь связь и повтори");
-    } finally {
-      pendingMutations--;
-    }
+      pendingMutations++;
+      try{
+        var res = await api('addNomenclature', item);
+        if(res && res.error) throw new Error(res.error);
+        showToast('«'+name+'» добавлен в базу');
+      }catch(e){
+        console.error(e);
+        state.nomenclature = state.nomenclature.filter(function(n){ return n.id!==item.id; });
+        render();
+        showToast("Не сохранилось — проверь связь и повтори");
+      } finally {
+        pendingMutations--;
+      }
+    });
   });
 }
 
 function closeAddSheet(){
-  state.showAddForm = false;
-  addState = { name:"", type:"товар", category:CATEGORIES[0], unit:"кг", statya:STATYI[0].key };
-  var ov = document.getElementById('addOverlay');
-  if(ov) ov.remove();
+  animateOverlayOut('addOverlay', function(){
+    state.showAddForm = false;
+    addState = { name:"", type:"товар", category:CATEGORIES[0], unit:"кг", statya:STATYI[0].key };
+  });
 }
 
 loadData();
