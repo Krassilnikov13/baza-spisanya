@@ -505,9 +505,12 @@ async function loadData(silent){
   }
   isSyncing = false;
   state.loading = false;
-  // не перерисовываем поверх открытой модалки/поля ввода/диалога подтверждения,
-  // чтобы не сбить то, что человек печатает, и не задублировать оверлей
-  if(!state.activeItemId && !state.showAddForm && !confirmState){ render(); }
+  // не перерисовываем поверх открытой модалки/диалога подтверждения — собьём оверлей;
+  // и не перерисовываем, если человек сейчас взаимодействует с каким-либо полем
+  // (например, открыт календарь <input type="date"> — пересоздание DOM тут же его закроет)
+  var activeTag = document.activeElement ? document.activeElement.tagName : "";
+  var fieldFocused = activeTag==="INPUT" || activeTag==="SELECT" || activeTag==="TEXTAREA";
+  if(!state.activeItemId && !state.showAddForm && !confirmState && !fieldFocused){ render(); }
 }
 
 // автообновление раз в 8 секунд — приближение к «реальному времени»
@@ -1025,16 +1028,16 @@ function bindSvod(){
   if(markBtn) markBtn.addEventListener('click', async function(){
     var idList = [];
     state.records.forEach(function(r){
-      if(r.statya===state.svodStatya && r.status==="not_processed" && inRange(r.date)) idList.push(r.id);
+      if(r.statya===state.svodStatya && r.status==="not_processed" && inRange(r.date) && state.svodChecked[r.nomenclatureId]) idList.push(r.id);
     });
-    if(idList.length===0) return;
+    if(idList.length===0){ showToast("Сначала отметь позиции, которые сверил — тапом по строке"); return; }
     var idSet = {};
     idList.forEach(function(id){ idSet[id]=true; });
     var prevRecords = state.records;
     state.records = state.records.map(function(r){
       return idSet[r.id] ? Object.assign({}, r, {status:"processed"}) : r;
     });
-    state.svodChecked = {}; // список исчез — отметки больше не нужны
+    state.svodChecked = {}; // провели отмеченное — отметки больше не нужны
     render();
     pendingMutations++;
     try{
